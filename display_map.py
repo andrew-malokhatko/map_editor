@@ -39,7 +39,6 @@ with open("map.bin", "rb") as f:
         block = Block(xdata, ydata, id)
         blocks.add(block)
 
-
 game_on = True
 
 while game_on:
