@@ -1,22 +1,28 @@
+import pathlib
 import pygame 
 import struct
 from buttons import *
-import os
+from pathlib import Path
 
 x_offset = 200
 y_offset = 200
 size = 30
 file_block_size = (300, 50)
 file_block_color = (30, 30, 30)
-file_block_txtcolor = (60, 60, 60)
+text_color = (200,200,200)
 RED = (255,0,0)
 
+this_dir = Path(__file__).parent
 cur_map = "map.bin"
 
 ids = {
     0: (100, 160, 250),
-    1: (200, 20, 120)
+    1: (200, 20, 120),
+    2: (255, 100, 200),
+    3: (47, 183, 21)
 }
+
+id_len = len(ids)
 
 SCREENSIZE = (1600, 900)
 screen = pygame.display.set_mode(SCREENSIZE)
@@ -43,9 +49,7 @@ class Block(pygame.sprite.Sprite):
     def click(self):
         pos = pygame.mouse.get_pos()
         if self.rect.collidepoint(pos):
-            id = bool(self.id)
-            self.id = int(not id)
-            #self.id = 0 if self.id == 1 else 1
+            self.id = (self.id + 1) % id_len
         self.image.fill(ids[self.id])
 
 
@@ -55,7 +59,7 @@ class File_block(pygame.sprite.Sprite):
         self.x = x
         self.red = False
         self.text = text
-        self.cur_color = RED if self.text == "map.bin" else file_block_txtcolor
+        self.cur_color = RED if self.text == "map.bin" else text_color
         self.y = y
         self.rtext = font.render(text, False, self.cur_color, None)
         self.image = pygame.Surface(file_block_size)
@@ -70,7 +74,7 @@ class File_block(pygame.sprite.Sprite):
                 cur_map = self.text
                 load()
                 for fbl in files:
-                    fbl.cur_color = file_block_txtcolor
+                    fbl.cur_color = text_color
                 self.cur_color = RED
 
         if to_render:
@@ -80,11 +84,10 @@ class File_block(pygame.sprite.Sprite):
         surface.blit(self.rtext, self.rect)
 
 def load():
-
     for block in blocks:
         block.kill()
 
-    with open(cur_map, "rb") as f:
+    with open(this_dir / cur_map, "rb") as f:
         data = f.read(5)
         while len(data) == 5:
             xdata, ydata, id = struct.unpack("hhb", data)
@@ -93,31 +96,28 @@ def load():
             data = f.read(5)
 
 def save():
-    
-    with open(cur_map, "wb") as f:
+    with open(this_dir / cur_map, "wb") as f:
         for block in blocks:
             data = struct.pack("hhb", block.to_load_x, block.to_load_y, block.id)
             f.write(data)
 
 def get_all_files():
     global files
-
     for file in files:
         file.kill()
-
     i = 0
-    for file in os.listdir():
-        if file.endswith(".bin"):
-            fblock = File_block(1200, y_offset + (file_block_size[1] + 10) * i, str(file))
+    for file in this_dir.iterdir():
+        if file.name.endswith(".bin"):
+            fblock = File_block(1200, y_offset + (file_block_size[1] + 10) * i, file.name)
             files.add(fblock)
             i += 1
 
-load_button = Button(SCREENSIZE[0] / 2 + 200, y_offset, 100, 50, (30,30,30), (200,200,200), "Load", screen, load)
-save_button = Button(SCREENSIZE[0] / 2 + 200, y_offset + 100, 100, 50, (30,30,30), (200,200,200), "Save", screen, save)
+load_button = Button(SCREENSIZE[0] / 2 + 200, y_offset, 100, 50, (30,30,30), text_color, "Load", screen, load)
+save_button = Button(SCREENSIZE[0] / 2 + 200, y_offset + 100, 100, 50, (30,30,30), text_color, "Save", screen, save)
 
 buttons.add(load_button, save_button)
 get_all_files()
-
+load()
 game_on = True
 
 while game_on:
