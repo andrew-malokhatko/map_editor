@@ -151,11 +151,12 @@ def new_file():
 def create_new_file():
     global typing
     global cur_map
+    global fblock
 
     typing = False
     cur_map = fblock.text
     fill_map()
-    load()
+    #fblock = None
 
 def get_sprite(map: str, sprites):
     for sprite in sprites:
@@ -168,7 +169,7 @@ def delete_file():
     sprites = files.sprites()
     sprite = get_sprite(cur_map, sprites)
 
-    if not sprite:
+    if not sprite or sprite == fblock and typing:
         return
 
     files.remove(sprite)
@@ -206,7 +207,7 @@ while game_on:
             files.update(False, True, screen)
 
         if event.type == pygame.KEYDOWN and typing:
-            if event.key == K_ENTER: create_new_file()
+            if event.key == K_ENTER and fblock.text != "": create_new_file()
             elif event.key == K_BACKSPACE: fblock.text = fblock.text[:-1]
             else:
                 if event.unicode:
