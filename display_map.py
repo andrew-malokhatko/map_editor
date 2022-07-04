@@ -1,4 +1,3 @@
-from posixpath import splitdrive
 import pygame 
 import struct
 from buttons import *
@@ -15,6 +14,7 @@ RED = (255,0,0)
 typing = False
 last_file = 0
 K_ENTER = 13
+fblock = None
 
 this_dir = Path(__file__).parent
 cur_map = ""
@@ -74,10 +74,10 @@ class File_block(pygame.sprite.Sprite):
 
     def update(self, check_press, to_render, surface: pygame.Surface):
         global cur_map
-        save()
+
         if check_press:
             pos = pygame.mouse.get_pos()
-            if self.rect.collidepoint(pos):
+            if self.rect.collidepoint(pos) and not typing:
                 cur_map = self.text
                 load()
                 for fbl in files:
@@ -92,9 +92,11 @@ class File_block(pygame.sprite.Sprite):
 
 def load():
     if cur_map == "" or len(files) == 0:
+        print("fdasfdsdfs")
         return
 
-    blocks.empty()
+    for block in blocks:
+        block.kill()
 
     with open(this_dir / cur_map, "rb") as f:
         data = f.read(5)
@@ -124,13 +126,14 @@ def get_all_files():
     last_file = 0
     for file in this_dir.iterdir():
         if file.name.endswith(".map"):
-            if last_file == 0: 
+            if last_file == 0:
                 cur_map = file.name
             fblock = File_block(1200, y_offset + (file_block_size[1] + 10) * last_file, file.name)
             files.add(fblock)
             last_file += 1
 
 def fill_map():
+    global cur_map
     with open(this_dir / cur_map, "wb") as f:
         for i in range(20):
             for k in range(20):
@@ -143,20 +146,21 @@ def new_file():
     global last_file
     global typing
 
-    typing = True
-    fblock = File_block(1200, y_offset + (file_block_size[1] + 10) * last_file, "")
-    files.add(fblock)
-    last_file += 1
+    if not typing:
+        typing = True
+        save()
+        fblock = File_block(1200, y_offset + (file_block_size[1] + 10) * last_file, "")
+        files.add(fblock)
+        last_file += 1
 
 def create_new_file():
     global typing
     global cur_map
     global fblock
 
-    typing = False
     cur_map = fblock.text
+    typing = False
     fill_map()
-    #fblock = None
 
 def get_sprite(map: str, sprites):
     for sprite in sprites:
@@ -176,7 +180,7 @@ def delete_file():
     sprite.kill()
     to_delete = this_dir / cur_map
     to_delete.unlink()
-    cur_map = sprites[0]
+    cur_map = sprites[0].text
 
     get_all_files()
 
@@ -189,6 +193,7 @@ buttons.add(load_button, save_button, new_button, delete_button)
 get_all_files()
 load()
 game_on = True
+ctrl = False
 
 while game_on:
     screen.fill((0,0,0))
@@ -206,13 +211,18 @@ while game_on:
             files.update(True, False, screen)
             files.update(False, True, screen)
 
-        if event.type == pygame.KEYDOWN and typing:
-            if event.key == K_ENTER and fblock.text != "": create_new_file()
-            elif event.key == K_BACKSPACE: fblock.text = fblock.text[:-1]
-            else:
-                if event.unicode:
-                    fblock.text += (event.unicode)
-            fblock.update(False, True, screen)
+        if event.type == pygame.KEYDOWN:
+            if typing:
+                if event.key == K_ENTER and fblock.text != "": create_new_file()
+                elif event.key == K_BACKSPACE: fblock.text = fblock.text[:-1]
+                else:
+                    if event.unicode:
+                        fblock.text += (event.unicode)
+                fblock.update(False, True, screen)
+
+            if event.key == K_s and pygame.key.get_pressed()[K_LCTRL]:
+                save()
+            
 
     buttons.update(None)
     files.update(False, False, screen)
