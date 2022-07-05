@@ -1,3 +1,4 @@
+from turtle import color
 import pygame 
 import struct
 from buttons import *
@@ -15,15 +16,22 @@ typing = False
 last_file = 0
 K_ENTER = 13
 fblock = None
+cur_id = 0
+timer = pygame.time.Clock()
 
 this_dir = Path(__file__).parent
 cur_map = ""
 
 ids = {
-    0: (100, 160, 250),
-    1: (200, 20, 120),
-    2: (255, 100, 200),
-    3: (47, 183, 21)
+    0: (240, 150, 220),
+    1: (220, 130, 200),
+    2: (200, 100, 160),
+    3: (240, 230, 40),
+    4: (10, 10, 10),
+    5: (0, 0, 220),
+    6: (0, 150, 255),
+    7: (255, 255, 255),
+    8: (0, 255, 80)
 }
 
 id_len = len(ids)
@@ -36,6 +44,7 @@ blocks = pygame.sprite.Group()
 buttons = pygame.sprite.Group()
 files = pygame.sprite.Group()
 entries = pygame.sprite.Group()
+colors = pygame.sprite.Group()
 
 class Block(pygame.sprite.Sprite):
     def __init__(self, x, y, id):
@@ -55,7 +64,7 @@ class Block(pygame.sprite.Sprite):
     def click(self):
         pos = pygame.mouse.get_pos()
         if self.rect.collidepoint(pos):
-            self.id = (self.id + 1) % id_len
+            self.id = cur_id
         self.image.fill(ids[self.id])
 
 
@@ -90,9 +99,41 @@ class File_block(pygame.sprite.Sprite):
         surface.blit(self.image, self.rect)
         surface.blit(self.rtext, self.rect)
 
+class Color(pygame.sprite.Sprite):
+    def __init__(self, x, y, color, id):
+        super().__init__()
+        self.x = x
+        self.y = y
+        self.id = id
+        self.color = color
+        self.bg = pygame.Surface((100, 100))
+        self.bg.fill(file_block_color)
+        if self.id == cur_id:
+            self.bg.fill(RED)
+        self.colorsurf = pygame.Surface((75, 75))
+        self.colorsurf.fill(color)
+        self.rect = self.bg.get_rect(topleft = (self.x, self.y))
+
+    def update(self, check_pressed: bool, screen: pygame.Surface):
+        global cur_id
+        if check_pressed:
+            pos = pygame.mouse.get_pos()
+            if self.rect.collidepoint(pos):
+                cur_id = self.id
+                for c in colors:
+                    c.bg.fill(file_block_color)
+                self.bg.fill(RED)
+            
+        screen.blit(self.bg, (self.x, self.y))
+        screen.blit(self.colorsurf, (self.x + 12, self.y + 12))
+
+def create_colors():
+    for i in range(id_len):
+        colorr = Color(x_offset + 150 * i, 50, ids[i], i)
+        colors.add(colorr)
+
 def load():
     if cur_map == "" or len(files) == 0:
-        print("fdasfdsdfs")
         return
 
     for block in blocks:
@@ -139,6 +180,7 @@ def fill_map():
             for k in range(20):
                 data = struct.pack("hhb", i, k, 0)
                 f.write(data)
+    load()
 
 def new_file():
     global fblock
@@ -184,14 +226,41 @@ def delete_file():
 
     get_all_files()
 
-load_button = Button(button_left, y_offset, 150, 50, (30,30,30), text_color, "Load", screen, load)
-save_button = Button(button_left, y_offset + 100, 150, 50, (30,30,30), text_color, "Save", screen, save)
+def copy():
+    copy_buf = Path(this_dir / "copy_buffer")
+    with open(this_dir / copy_buf, "wb") as f:
+        for block in blocks:
+            data = struct.pack("hhb", block.to_load_x, block.to_load_y, block.id)
+            f.write(data)
+
+def paste():
+    for block in blocks:
+        block.kill()
+
+    copy_buf = Path(this_dir / "copy_buffer")
+
+    with open(this_dir / copy_buf, "rb") as f:
+        data = f.read(5)
+        while len(data) == 5:
+            xdata, ydata, id = struct.unpack("hhb", data)
+            block = Block(xdata, ydata, id)
+            blocks.add(block)
+            data = f.read(5)
+
+
+load_button = Button(button_left, y_offset, 150, 50, (30,30,30), text_color, "Load File", screen, load)
+save_button = Button(button_left, y_offset + 100, 150, 50, (30,30,30), text_color, "Save File", screen, save)
 new_button = Button(button_left, y_offset + 200, 150, 50, (30,30,30), text_color, "New File", screen, new_file)
 delete_button = Button(button_left, y_offset + 300, 150, 50, (30,30,30), text_color, "Delete File", screen, delete_file)
+clear_button = Button(button_left, y_offset + 400, 150, 50, (30,30,30), text_color, "Clear File", screen, fill_map)
+copy_button = Button(button_left, y_offset + 500, 150, 50, (30,30,30), text_color, "Copy File", screen, copy)
+paste_button = Button(button_left, y_offset + 600, 150, 50, (30,30,30), text_color, "Paste File", screen, paste)
 
-buttons.add(load_button, save_button, new_button, delete_button)
+
+buttons.add(load_button, save_button, new_button, delete_button, clear_button, copy_button, paste_button)
 get_all_files()
 load()
+create_colors()
 game_on = True
 ctrl = False
 
@@ -206,8 +275,12 @@ while game_on:
             save_button.check_pressed()
             new_button.check_pressed()
             delete_button.check_pressed()
+            clear_button.check_pressed()
+            copy_button.check_pressed()
+            paste_button.check_pressed()
 
             blocks.update()
+            colors.update(True, screen)
             files.update(True, False, screen)
             files.update(False, True, screen)
 
@@ -222,9 +295,16 @@ while game_on:
 
             if event.key == K_s and pygame.key.get_pressed()[K_LCTRL]:
                 save()
-            
 
+            if event.key == K_c and pygame.key.get_pressed()[K_LCTRL]:
+                copy()
+
+            if event.key == K_v and pygame.key.get_pressed()[K_LCTRL]:
+                paste()
+            
+    colors.update(False, screen)
     buttons.update(None)
     files.update(False, False, screen)
     blocks.draw(screen)
+    timer.tick(60)
     pygame.display.flip()
