@@ -1,4 +1,3 @@
-from turtle import color
 import pygame 
 import struct
 from buttons import *
@@ -17,6 +16,7 @@ last_file = 0
 K_ENTER = 13
 fblock = None
 cur_id = 0
+ctrl_z = []
 timer = pygame.time.Clock()
 
 this_dir = Path(__file__).parent
@@ -63,7 +63,8 @@ class Block(pygame.sprite.Sprite):
 
     def click(self):
         pos = pygame.mouse.get_pos()
-        if self.rect.collidepoint(pos):
+        if self.rect.collidepoint(pos) and self.id != cur_id:
+            ctrl_z.insert(0, (self, self.id))
             self.id = cur_id
         self.image.fill(ids[self.id])
 
@@ -195,14 +196,24 @@ def new_file():
         files.add(fblock)
         last_file += 1
 
+def valid_name(text: str, block):
+    for file in files:
+        if file.text == text and file != block:
+            return False
+    return True
+
 def create_new_file():
     global typing
     global cur_map
     global fblock
 
-    cur_map = fblock.text
-    typing = False
-    fill_map()
+    if not fblock.text.endswith(".map"):
+        fblock.text += ".map"
+    
+    if valid_name(fblock.text, fblock):#fixed some bugs
+        cur_map = fblock.text
+        fill_map()
+        typing = False
 
 def get_sprite(map: str, sprites):
     for sprite in sprites:
@@ -246,6 +257,14 @@ def paste():
             block = Block(xdata, ydata, id)
             blocks.add(block)
             data = f.read(5)
+
+def undo():
+    if len(ctrl_z) != 0:
+        to_undo = ctrl_z[0]
+        ctrl_z.pop(0)
+
+        to_undo[0].id = to_undo[1]
+        to_undo[0].image.fill(ids[to_undo[0].id])
 
 
 load_button = Button(button_left, y_offset, 150, 50, (30,30,30), text_color, "Load File", screen, load)
@@ -302,6 +321,9 @@ while game_on:
             if event.key == K_v and pygame.key.get_pressed()[K_LCTRL]:
                 paste()
             
+            if event.key == K_z and pygame.key.get_pressed()[K_LCTRL]:
+                undo()
+
     colors.update(False, screen)
     buttons.update(None)
     files.update(False, False, screen)
