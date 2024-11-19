@@ -43,6 +43,9 @@ Ensure you have the following installed on your system:
    ```bash
    python map_editor.py
    ```
+
+---
+
 ## Usage
 
 ### Controls:
